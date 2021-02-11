@@ -7,6 +7,8 @@
 
 import gym
 import numpy as np
+import tensorflow as tf
+import random
 
 def decay(rewards, decay_factor):
     """
@@ -40,10 +42,25 @@ rewards = [[] for _ in range(nr_episodes)]
 dones = [[] for _ in range(nr_episodes)]
 infos = [[] for _ in range(nr_episodes)]
 
+neurons = 32
+input1 = tf.keras.layers.Input(4)
+X = tf.keras.layers.BatchNormalization()(input1)
+X = tf.keras.layers.Dense(neurons, "relu")(X)
+X = tf.keras.layers.Dense(neurons, "relu")(X)
+output = tf.keras.layers.Dense(1, "sigmoid")(X)  # Sigmoid ipv softmax aangezien we maar 1 output hebben.
+
+agent = tf.keras.models.Model(inputs=[input1], outputs=[output])
+
 for i_episode in range(nr_episodes):
     while 1:
         env.render()
-        action = env.action_space.sample()
+        # TF predict verwacht een lijst van lijsten: dimensies x by 4.
+        # inputs = np.expand_dims(inputs, axis=0)
+        inputs = [[0, 0, 0, 0]]
+        print('inputs', inputs)
+        prediction = agent.predict(np.array(inputs))[0][0]
+        print('prediction', prediction)
+        action = int(random.random() < prediction)
         observation, reward, done, info = env.step(action)
         observations[i_episode].append(observation)
         rewards[i_episode].append(reward)
