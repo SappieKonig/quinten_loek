@@ -41,6 +41,8 @@ observations = [[] for _ in range(nr_episodes)]
 rewards = [[] for _ in range(nr_episodes)]
 dones = [[] for _ in range(nr_episodes)]
 infos = [[] for _ in range(nr_episodes)]
+actions = [[] for _ in range(nr_episodes)]
+
 
 neurons = 32
 input1 = tf.keras.layers.Input(4)
@@ -66,16 +68,28 @@ for i_episode in range(nr_episodes):
         rewards[i_episode].append(reward)
         dones[i_episode].append(done)
         infos[i_episode].append(info)
+        actions[i_episode].append(action)
         if done:
             env.reset()
             break
 
 env.close()
 
-print(observations)
-print(rewards)
-print(dones)
-
 result = decay_and_normalize(rewards, 0.9)
-
 print(result)
+
+rewards = np.concatenate(rewards)
+rewards = np.expand_dims(rewards, axis=1)
+observations = np.concatenate(observations)
+dones = np.concatenate(dones)
+dones = np.expand_dims(dones, axis=1)
+actions = np.concatenate(actions)
+actions = np.expand_dims(actions, axis=1)
+
+print('observations', observations.shape, observations)
+print(rewards)
+print('dones', dones.shape, dones)
+print(actions)
+
+
+#Softmax met maar 1 output = altijd 1, hierom maken we gebruik van sigmoid ipv softmax
