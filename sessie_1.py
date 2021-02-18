@@ -36,7 +36,7 @@ def decay_and_normalize(total_rewards, decay_factor):
 env = gym.make("CartPole-v0")
 env.reset()
 done = False
-nr_episodes = 2
+nr_episodes = 100
 observations = [[] for _ in range(nr_episodes)]
 rewards = [[] for _ in range(nr_episodes)]
 dones = [[] for _ in range(nr_episodes)]
@@ -59,9 +59,9 @@ for i_episode in range(nr_episodes):
         # TF predict verwacht een lijst van lijsten: dimensies x by 4.
         # inputs = np.expand_dims(inputs, axis=0)
         inputs = [[0, 0, 0, 0]]
-        print('inputs', inputs)
+        # print('inputs', inputs)
         prediction = agent.predict(np.array(inputs))[0][0]
-        print('prediction', prediction)
+        # print('prediction', prediction)
         action = int(random.random() < prediction)
         observation, reward, done, info = env.step(action)
         observations[i_episode].append(observation)
@@ -76,7 +76,7 @@ for i_episode in range(nr_episodes):
 env.close()
 
 result = decay_and_normalize(rewards, 0.9)
-print(result)
+print('result', result.shape)
 
 rewards = np.concatenate(rewards)
 rewards = np.expand_dims(rewards, axis=1)
@@ -86,10 +86,13 @@ dones = np.expand_dims(dones, axis=1)
 actions = np.concatenate(actions)
 actions = np.expand_dims(actions, axis=1)
 
-print('observations', observations.shape, observations)
-print(rewards)
-print('dones', dones.shape, dones)
-print(actions)
+print('observations', observations.shape)
+print('rewards', rewards.shape)
+print('dones', dones.shape)
+print('actions', actions.shape)
 
+optimizer = tf.keras.optimizers.Adam(3e-4)
+agent.compile(optimizer, tf.keras.losses.mse)
+agent.fit(observations, actions)
 
 #Softmax met maar 1 output = altijd 1, hierom maken we gebruik van sigmoid ipv softmax
