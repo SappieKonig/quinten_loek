@@ -2,7 +2,9 @@
 # (heeft vanaf het begin al afmetingen gelijk aan nr_episodes). Dit helpt ontzettend bij debugging omdat het sneller
 # problemen oplevert als je code niet klopt. Ik heb niks op deze code aan te merken ;)
 
-
+# Prachtig om die documentatie te zien! Dan vergeet je iig niet tussendoor waar je nou mee bezig was.
+# We gebruiken helaas de langere methode voor het trainen, dus het laatste stukje code moet nog een beetje veranderen.
+# Verder heb ik nog 3 enters toegevoegd in de hoop dat het overzichtelijker wordt, kijk zelf maar wat julle fijner vinden.
 
 
 import gym
@@ -37,6 +39,7 @@ env = gym.make("CartPole-v0")
 env.reset()
 done = False
 nr_episodes = 100
+
 observations = [[] for _ in range(nr_episodes)]
 rewards = [[] for _ in range(nr_episodes)]
 dones = [[] for _ in range(nr_episodes)]
@@ -64,11 +67,13 @@ for i_episode in range(nr_episodes):
         # print('prediction', prediction)
         action = int(random.random() < prediction)
         observation, reward, done, info = env.step(action)
+
         observations[i_episode].append(observation)
         rewards[i_episode].append(reward)
         dones[i_episode].append(done)
         infos[i_episode].append(info)
         actions[i_episode].append(action)
+
         if done:
             env.reset()
             break
