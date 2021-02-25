@@ -36,16 +36,18 @@ def decay_and_normalize(total_rewards, decay_factor):
     return (total_rewards - np.mean(total_rewards)) / np.std(total_rewards)
 
 env = gym.make("CartPole-v0")
-env.reset()
-done = False
-nr_episodes = 100
 
+observation = env.reset()
+done = False
+reward = 1
+info = {}
+
+nr_episodes = 2
 observations = [[] for _ in range(nr_episodes)]
 rewards = [[] for _ in range(nr_episodes)]
 dones = [[] for _ in range(nr_episodes)]
 infos = [[] for _ in range(nr_episodes)]
 actions = [[] for _ in range(nr_episodes)]
-
 
 neurons = 32
 input1 = tf.keras.layers.Input(4)
@@ -59,21 +61,19 @@ agent = tf.keras.models.Model(inputs=[input1], outputs=[output])
 for i_episode in range(nr_episodes):
     while 1:
         env.render()
-        # TF predict verwacht een lijst van lijsten: dimensies x by 4.
-        # inputs = np.expand_dims(inputs, axis=0)
-        inputs = [[0, 0, 0, 0]]
-        # print('inputs', inputs)
-        prediction = agent.predict(np.array(inputs))[0][0]
-        # print('prediction', prediction)
+        print('observation', observation)
+        # TF predict verwacht een lijst van lijsten: dimensies x by 4. Daarom extra haken toevoegen.
+        prediction = agent.predict(np.array([observation]))[0][0]
+        print('prediction', prediction)
         action = int(random.random() < prediction)
-        observation, reward, done, info = env.step(action)
-
+        # Voeg juiste reward etc bij actie toe
         observations[i_episode].append(observation)
         rewards[i_episode].append(reward)
         dones[i_episode].append(done)
         infos[i_episode].append(info)
         actions[i_episode].append(action)
-
+        # update observation etc.
+        observation, reward, done, info = env.step(action)
         if done:
             env.reset()
             break
@@ -97,7 +97,11 @@ print('dones', dones.shape)
 print('actions', actions.shape)
 
 optimizer = tf.keras.optimizers.Adam(3e-4)
-agent.compile(optimizer, tf.keras.losses.mse)
-agent.fit(observations, actions)
+with tf.GradientTape() as tape:
+    predictions = agent(observations)
+    loss = tf.keras.losses.mse(actions, predictions)
+train_vars = agent.trainable_variables
+grads = tape.gradient(loss, train_vars)
+optimizer.apply_gradients(zip(grads, train_vars))
 
-#Softmax met maar 1 output = altijd 1, hierom maken we gebruik van sigmoid ipv softmax
+
