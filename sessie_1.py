@@ -45,12 +45,12 @@ done = False
 reward = 1
 info = {}
 
-nr_epochs = 99
-nr_episodes = 10
 scores = []
 
-
-learning_rate = 3e-4
+nr_epochs = 99
+nr_episodes = 10
+learning_rate = 3e-3
+batch_size = 16
 
 neurons = 32
 input1 = tf.keras.layers.Input(4)
@@ -88,7 +88,7 @@ for i_epoch in range (nr_epochs):
 
     env.close()
 
-    decayed_reward = decay_and_normalize(rewards, 0.9)
+    decayed_rewards = decay_and_normalize(rewards, 0.9)
 
     rewards = np.concatenate(rewards)
     rewards = np.expand_dims(rewards, axis=1)
@@ -98,22 +98,34 @@ for i_epoch in range (nr_epochs):
     actions = np.concatenate(actions)
     actions = np.expand_dims(actions, axis=1)
 
-    score = len(actions) // nr_episodes
+    aantal_stappen = len(actions)
+    score = aantal_stappen // nr_episodes
     print('Gemiddeld aantal stappen is:', score)
     scores += [score]
 
-    with tf.GradientTape() as tape:
-        predictions = agent(observations)
-        loss = tf.keras.losses.mse(actions, predictions) * decayed_reward
-    train_vars = agent.trainable_variables
-    grads = tape.gradient(loss, train_vars)
-    optimizer.apply_gradients(zip(grads, train_vars))
+    # for idx in range(aantal_stappen // batch_size):
+    #     batch_actions = actions[0+1*idx:batch_size * idx]
+    aantal_batches = np.ceil(aantal_stappen / batch_size)
+    batch_actions = np.array_split(actions, aantal_batches)
+    batch_observations = np.array_split(observations, aantal_batches)
+    batch_decayed_rewards = np.array_split(decayed_rewards, aantal_batches)
+
+    for batch_action, batch_observation, batch_decayed_reward in zip(batch_actions, batch_observations, batch_decayed_rewards):
+
+        with tf.GradientTape() as tape:
+            predictions = agent(batch_observation)
+            loss = tf.keras.losses.mse(batch_action, predictions) * batch_decayed_reward
+        train_vars = agent.trainable_variables
+        grads = tape.gradient(loss, train_vars)
+        optimizer.apply_gradients(zip(grads, train_vars))
 
     if min(scores[-5:]) > 195:
         break
 
 plt.plot(scores)
 plt.show()
+
+
 
 
 
