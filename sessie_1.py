@@ -30,13 +30,14 @@ def decay(rewards, decay_factor):
     return decayed_rewards
 
 
-def decay_and_normalize(total_rewards, decay_factor):
+def decay_and_normalize(total_rewards, values, decay_factor):
     for i, rewards in enumerate(total_rewards):
         total_rewards[i] = decay(rewards, decay_factor)
 
     total_rewards = np.concatenate(total_rewards)
+    new_decayed_rewards = total_rewards - np.concatenate(values)
 
-    return (total_rewards - np.mean(total_rewards)) / np.std(total_rewards)
+    return (new_decayed_rewards - np.mean(new_decayed_rewards)) / np.std(new_decayed_rewards)
 
 env = gym.make("CartPole-v0")
 
@@ -49,37 +50,45 @@ scores = []
 
 nr_epochs = 99
 nr_episodes = 10
-learning_rate = 3e-3
+learning_rate = 3e-2
 batch_size = 16
 
-neurons = 32
+neurons = 64
 input1 = tf.keras.layers.Input(4)
 X = tf.keras.layers.BatchNormalization()(input1)
 X = tf.keras.layers.Dense(neurons, "relu")(X)
 X = tf.keras.layers.Dense(neurons, "relu")(X)
 output = tf.keras.layers.Dense(1, "sigmoid")(X)  # Sigmoid ipv softmax aangezien we maar 1 output hebben.
+output_2 = tf.keras.layers.Dense(1)(X)  # output voor value_head (voorspelling van decayed reward)
 
-agent = tf.keras.models.Model(inputs=[input1], outputs=[output])
+agent = tf.keras.models.Model(inputs=[input1], outputs=[output, output_2])
 optimizer = tf.keras.optimizers.Adam(learning_rate)  # slaat parameters op tijdens het leren die je wilt bewaren
 
-for i_epoch in range (nr_epochs):
+for i_epoch in range(nr_epochs):
+    print(32 * '=', i_epoch, 32 * '=')
     observations = [[] for _ in range(nr_episodes)]
     rewards = [[] for _ in range(nr_episodes)]
     dones = [[] for _ in range(nr_episodes)]
     infos = [[] for _ in range(nr_episodes)]
     actions = [[] for _ in range(nr_episodes)]
+    values = [[] for _ in range(nr_episodes)]
     for i_episode in range(nr_episodes):
         while 1:
             # env.render()
             # TF predict verwacht een lijst van lijsten: dimensies x by 4. Daarom extra haken toevoegen.
-            prediction = agent.predict(np.array([observation]))[0][0]
+            prediction, value = agent.predict(np.array([observation]))
+            # uitpakken om van [[x]] tot x te komen
+            prediction = prediction[0][0]
+            value = value[0][0]
             action = int(random.random() < prediction)
+
             # Voeg juiste reward etc bij actie toe
             observations[i_episode].append(observation)
             rewards[i_episode].append(reward)
             dones[i_episode].append(done)
             infos[i_episode].append(info)
             actions[i_episode].append(action)
+            values[i_episode].append(value)
             # update observation etc.
             observation, reward, done, info = env.step(action)
             if done:
@@ -88,7 +97,7 @@ for i_epoch in range (nr_epochs):
 
     env.close()
 
-    decayed_rewards = decay_and_normalize(rewards, 0.9)
+    decayed_rewards = decay_and_normalize(rewards, values, 0.9)
 
     rewards = np.concatenate(rewards)
     rewards = np.expand_dims(rewards, axis=1)
@@ -113,8 +122,10 @@ for i_epoch in range (nr_epochs):
     for batch_action, batch_observation, batch_decayed_reward in zip(batch_actions, batch_observations, batch_decayed_rewards):
 
         with tf.GradientTape() as tape:
-            predictions = agent(batch_observation)
+            predictions, value_head_output = agent(batch_observation)
             loss = tf.keras.losses.mse(batch_action, predictions) * batch_decayed_reward
+            loss += tf.keras.losses.mse(batch_decayed_reward, value_head_output)
+
         train_vars = agent.trainable_variables
         grads = tape.gradient(loss, train_vars)
         optimizer.apply_gradients(zip(grads, train_vars))
